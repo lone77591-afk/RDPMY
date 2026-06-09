@@ -11,16 +11,18 @@ jobs:
     steps:
       - name: Configure Core RDP Settings
         run: |
-          # Enable Remote Desktop and disable Network Level Authentication (if needed)
+          # Define a secure password string directly in the script
+          $password = ConvertTo-SecureString "SecureRDP@2026!" -AsPlainText -Force
+          
+          # Enable Remote Desktop and disable Network Level Authentication
           Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" -Name "fDenyTSConnections" -Value 0 -Force
           
-          # Create a secure user for RDP (Password variable should be pre-defined or managed safely)
-          # Note: Ensure $password is set correctly if you are managing it as a variable upstream
+          # Create a secure user for RDP
           New-LocalUser -Name "RDP" -Password $password -AccountNeverExpires
           Add-LocalGroupMember -Group "Administrators" -Member "RDP"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "RDP"
           
-          echo "RDP_CREDS=User: RDP | Password: $password" >> $env:GITHUB_ENV
+          echo "RDP_CREDS=User: RDP | Password: SecureRDP@2026!" >> $env:GITHUB_ENV
           
           if (-not (Get-LocalUser -Name "RDP")) {
               Write-Error "User creation failed."
@@ -39,8 +41,8 @@ jobs:
 
       - name: Establish Tailscale Connection
         run: |
-          # Bring up Tailscale with the provided auth key and set a unique hostname
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID
+          # Added --ephemeral flag so the runner automatically deletes itself from dashboard when offline
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-runner-$env:GITHUB_RUN_ID --ephemeral
           
           # Wait for Tailscale to assign an IP
           $tsIP = $null
